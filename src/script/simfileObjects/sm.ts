@@ -5,7 +5,7 @@ export interface BPMs {
     bpm: number;
 }
 
-interface Stops {
+export interface Stops {
     beat: number;
     seconds: number;
 }
