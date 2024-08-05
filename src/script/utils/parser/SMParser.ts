@@ -1,5 +1,5 @@
 import {readChartFile} from "./modules/readChartFile.ts";
-import ChartSM, {BPMs, Stops, templateChart} from "../../simfileObjects/sm.ts";
+import ChartSM, {BPMs, DynamicDispBPM, Stops, templateChart} from "../../simfileObjects/sm.ts";
 
 enum MultilinedTags {
     NONE = -1,
@@ -40,30 +40,10 @@ export default class SMParser {
         const lines = this.rawSim.split('\n');
 
         lines.forEach(line => {
-            // parse multilined tags, such as bpms, stops...
-            if (this.parsingMultilined !== MultilinedTags.NONE) {
-                this.multilinedTag.push(line);
-                if (line.includes(";")) {
-                    // eslint-disable-next-line no-case-declarations
-                    const tag = this.multilinedTag.join("").replace(this.regexExtractSimpleTag, "")
-                        .split(":");
-
-                    switch (this.parsingMultilined) {
-                        case MultilinedTags.BPMS:
-                            this.parsedJson.header["bpms"] = this.parseBPMsOrStops(tag, MultilinedTags.BPMS);
-                            break;
-                        case MultilinedTags.STOPS:
-                            this.parsedJson.header["stops"] = this.parseBPMsOrStops(tag, MultilinedTags.STOPS);
-                            break;
-                    }
-
-                    this.multilinedTag = []
-                    this.parsingMultilined = MultilinedTags.NONE;
-                }
-            }
+            this.parseMultilinedTag(line);
 
             if (this.regexTag.test(line)) {
-                const parsedTag = line.replace(this.regexExtractSimpleTag, "")
+                const parsedTag: Array<string> = line.replace(this.regexExtractSimpleTag, "")
                     .split(":");
 
                 const property = parsedTag[0].toLowerCase();
@@ -76,6 +56,7 @@ export default class SMParser {
                             this.checkIfMultilined(line, parsedTag, MultilinedTags.STOPS);
                             break;
                         case "displaybpm":
+                            this.parsedJson.header[property] = this.parseDisplayBPM(parsedTag);
                             break;
                         case "notes":
                             break;
@@ -120,15 +101,27 @@ export default class SMParser {
         return parsedValues;
     }
 
-    private parseDisplayBPM() {
+    private parseDisplayBPM(value: Array<string>): number | DynamicDispBPM  {
         // just single int value is static bpm
         // value, like 100:200 is the range between bpms
         // asterisk is unknown (...)
+        console.warn("Parsing Display BPM...");
 
-
+        if (value.length === 3) { // bpm range
+            return <DynamicDispBPM>{
+                from: Number(value[1]),
+                to: Number(value[2]),
+            };
+        } else {
+            if (isNaN(Number(value[1]))) { // undefined bpm
+                return -1;
+            } else { // static bpm
+                return Number(value[1]);
+            }
+        }
     }
 
-    private parseNotes() {
+    private parseNotes(){
 
     }
 
@@ -136,6 +129,30 @@ export default class SMParser {
     // Prettier way to check property
     private hasProperty(obj: any, property: string): boolean {
         return Object.prototype.hasOwnProperty.call(obj, property)
+    }
+
+    // Parse multilined tags, such as bpms, stops...
+    private parseMultilinedTag(line: string) {
+        if (this.parsingMultilined !== MultilinedTags.NONE) {
+            this.multilinedTag.push(line);
+            if (line.includes(";")) {
+                // eslint-disable-next-line no-case-declarations
+                const tag = this.multilinedTag.join("").replace(this.regexExtractSimpleTag, "")
+                    .split(":");
+
+                switch (this.parsingMultilined) {
+                    case MultilinedTags.BPMS:
+                        this.parsedJson.header["bpms"] = this.parseBPMsOrStops(tag, MultilinedTags.BPMS);
+                        break;
+                    case MultilinedTags.STOPS:
+                        this.parsedJson.header["stops"] = this.parseBPMsOrStops(tag, MultilinedTags.STOPS);
+                        break;
+                }
+
+                this.multilinedTag = []
+                this.parsingMultilined = MultilinedTags.NONE;
+            }
+        }
     }
 
     // Check that line is multilined

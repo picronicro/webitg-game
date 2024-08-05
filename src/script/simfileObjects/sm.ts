@@ -10,7 +10,7 @@ export interface Stops {
     seconds: number;
 }
 
-interface DynamicDispBPM {
+export interface DynamicDispBPM {
     from: number;
     to: number;
 }
