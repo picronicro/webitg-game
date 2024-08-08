@@ -57,6 +57,15 @@ export default interface ChartSM {
     charts: Array<SMChartTags>;
 }
 
+export const templateChartTags: SMChartTags = {
+    chartType: "",
+    chartAuthor: "",
+    difficulty: ChartDifficulty.EDIT,
+    numDifficulty: 0,
+    grooveRadar: undefined,
+    notes: []
+}
+
 export const templateChart: ChartSM = {
     header: {
         title: "",

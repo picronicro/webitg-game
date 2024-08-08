@@ -1,5 +1,12 @@
 import {readChartFile} from "./modules/readChartFile.ts";
-import ChartSM, {BPMs, DynamicDispBPM, Stops, templateChart} from "../../simfileObjects/sm.ts";
+import ChartSM, {
+    BPMs,
+    DynamicDispBPM,
+    SMChartTags,
+    Stops,
+    templateChart,
+    templateChartTags
+} from "../../simfileObjects/sm.ts";
 
 enum MultilinedTags {
     NONE = -1,
@@ -13,9 +20,11 @@ export default class SMParser {
     private readonly regexTag: RegExp = /#([^:]+):([^;]+)/;
     // This regex is used to only leave tag name and its value
     private readonly regexExtractSimpleTag: RegExp = /[#;\r]/g;
+    // NOTES chart data
+    private readonly regexNotesChartData: RegExp = /(?<= {5})[^:]*/;
 
     private rawSim: string | undefined;
-    private parsedJson: ChartSM | {[index: string]: any} = structuredClone(templateChart)
+    private parsedJson: ChartSM | { [index: string]: any } = structuredClone(templateChart)
 
     multilinedTag: Array<string> = [];
     parsingMultilined: MultilinedTags = MultilinedTags.NONE;
@@ -39,9 +48,19 @@ export default class SMParser {
         // @ts-expect-error File may be undefined
         const lines = this.rawSim.split('\n');
 
-        lines.forEach(line => {
+        lines.forEach((line, index) => {
+            // remove comments
+            line = line.split("//")[0];
+
             this.parseMultilinedTag(line);
 
+            // Parse NOTES (it's not in HEADER part, cuz that has a little different structure)
+            if (line.toLowerCase().includes("notes")) {
+                this.parseNotes(lines, index);
+                return;
+            }
+
+            // Parse HEADER tags
             if (this.regexTag.test(line)) {
                 const parsedTag: Array<string> = line.replace(this.regexExtractSimpleTag, "")
                     .split(":");
@@ -57,8 +76,6 @@ export default class SMParser {
                             break;
                         case "displaybpm":
                             this.parsedJson.header[property] = this.parseDisplayBPM(parsedTag);
-                            break;
-                        case "notes":
                             break;
                         default:
                             // data type correction
@@ -82,10 +99,10 @@ export default class SMParser {
         let obj: any
         switch (type) {
             case MultilinedTags.BPMS:
-                obj = <BPMs> {beat: 0, bpm: 0};
+                obj = <BPMs>{beat: 0, bpm: 0};
                 break;
             case MultilinedTags.STOPS:
-                obj = <Stops> {beat: 0, seconds: 0}
+                obj = <Stops>{beat: 0, seconds: 0}
         }
 
         const values = tag[1].split(",");
@@ -101,7 +118,7 @@ export default class SMParser {
         return parsedValues;
     }
 
-    private parseDisplayBPM(value: Array<string>): number | DynamicDispBPM  {
+    private parseDisplayBPM(value: Array<string>): number | DynamicDispBPM {
         // just single int value is static bpm
         // value, like 100:200 is the range between bpms
         // asterisk is unknown (...)
@@ -121,8 +138,40 @@ export default class SMParser {
         }
     }
 
-    private parseNotes(){
+    private parseNotes(lines: Array<string>, index: number) {
+        console.log("Parsing notes...")
+        const splicedLines = lines.splice(index);
+        const chartData: SMChartTags = structuredClone(templateChartTags);
 
+        let tagIndex = 1;
+        splicedLines.forEach(line => {
+            // remove comments
+            line = line.split("//")[0];
+
+            if (this.regexNotesChartData.test(line)) {
+                const parsedTag: RegExpMatchArray | null = line.match(this.regexNotesChartData);
+                console.log(parsedTag);
+
+                if (!tagIndex) {
+
+                }
+
+                switch (tagIndex) {
+                    case 1:
+                        chartData.chartType = parsedTag[tagIndex - 1]
+                        break;
+                    case 2:
+                        break;
+                    case 3:
+                        break;
+                    case 4:
+                        break;
+                    case 5:
+                        break;
+                }
+                tagIndex ++;
+            }
+        });
     }
 
     // misc
