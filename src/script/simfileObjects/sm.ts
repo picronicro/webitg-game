@@ -15,10 +15,6 @@ export interface DynamicDispBPM {
     to: number;
 }
 
-interface Measure {
-    measure: Array<number>
-}
-
 // Not included tags will be ignored
 interface SMHeaderTags {
     title: string;
@@ -47,7 +43,7 @@ export interface SMChartTags {
     difficulty: ChartDifficulty;
     numDifficulty: number; // numerical difficulty
     grooveRadar: unknown; // not supported atm
-    notes: Array<Measure>
+    notes: Array<Array<string>>
 }
 
 // Fully composed .sm chart object

@@ -7,6 +7,7 @@ import ChartSM, {
     templateChart,
     templateChartTags
 } from "../../simfileObjects/sm.ts";
+import {ChartDifficulty} from "../../simfileObjects/generic.ts";
 
 enum MultilinedTags {
     NONE = -1,
@@ -48,7 +49,8 @@ export default class SMParser {
         // @ts-expect-error File may be undefined
         const lines = this.rawSim.split('\n');
 
-        lines.forEach((line, index) => {
+        // eslint-disable-next-line prefer-const
+        for (let [index, line] of lines.entries()) {
             // remove comments
             line = line.split("//")[0];
 
@@ -57,7 +59,7 @@ export default class SMParser {
             // Parse NOTES (it's not in HEADER part, cuz that has a little different structure)
             if (line.toLowerCase().includes("notes")) {
                 this.parseNotes(lines, index);
-                return;
+                break;
             }
 
             // Parse HEADER tags
@@ -87,7 +89,7 @@ export default class SMParser {
                     }
                 }
             }
-        });
+        }
 
         console.log(this.parsedJson);
     }
@@ -140,38 +142,78 @@ export default class SMParser {
 
     private parseNotes(lines: Array<string>, index: number) {
         console.log("Parsing notes...")
-        const splicedLines = lines.splice(index);
         const chartData: SMChartTags = structuredClone(templateChartTags);
 
-        let tagIndex = 1;
-        splicedLines.forEach(line => {
+        let splicedLines = lines.splice(index);
+        let tagEndIndex: number = 0;
+
+        let tagIndex = 0;
+
+        // parsing notes tags
+        // eslint-disable-next-line prefer-const
+        for (let [index, line] of splicedLines.entries()) { // parse chart data tags
             // remove comments
             line = line.split("//")[0];
 
             if (this.regexNotesChartData.test(line)) {
-                const parsedTag: RegExpMatchArray | null = line.match(this.regexNotesChartData);
-                console.log(parsedTag);
-
-                if (!tagIndex) {
-
-                }
+                // @ts-expect-error it shouldn't return null, I think
+                const parsedTag: RegExpMatchArray = line.match(this.regexNotesChartData);
 
                 switch (tagIndex) {
+                    case 0:
+                        chartData.chartType = parsedTag[0];
+                        break;
                     case 1:
-                        chartData.chartType = parsedTag[tagIndex - 1]
+                        chartData.chartAuthor = parsedTag[0];
                         break;
                     case 2:
+                        // @ts-expect-error nah, it should always return string
+                        chartData.difficulty = ChartDifficulty[parsedTag[0].toUpperCase()];
                         break;
                     case 3:
+                        chartData.numDifficulty = Number(parsedTag[0]);
                         break;
                     case 4:
-                        break;
-                    case 5:
+                        // ignore
                         break;
                 }
                 tagIndex ++;
+                if (tagIndex >= 5) {
+                    tagEndIndex = index + 1; // +1 is to exclude groove radar line
+                    break;
+                }
             }
-        });
+        }
+
+        // parsing measures
+        splicedLines = splicedLines.splice(tagEndIndex);
+        let measure: Array<string> = [];
+
+        for (let [index, line] of splicedLines.entries()) { // parse measures
+            // single measure is an array
+            // length of array is which note type is used
+            // more about notes at https://github.com/stepmania/stepmania/wiki/sm#notes
+
+            // remove comments
+            line = line.split("//")[0];
+
+            if (!line.includes(",")) {
+                !line.includes(";") && line.trim() !== "" ? measure.push(line.trim()) : false;
+            } else {
+                chartData.notes.push(measure);
+                measure = [];
+            }
+
+            if (line.includes(";")) {
+                chartData.notes.push(measure);
+                this.parsedJson.charts.push(chartData)
+                // TODO: should run parseTags() with index as an argument again and seek for another NOTES tag
+
+                break;
+            }
+        }
+
+        console.log(chartData);
     }
 
     // misc
