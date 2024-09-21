@@ -45,12 +45,11 @@ export default class SMParser {
             .catch(err => console.log(err));
     }
 
-    private parseTags() {
-        // @ts-expect-error File may be undefined
-        const lines = this.rawSim.split('\n');
-
+    // @ts-expect-error File may be undefined
+    private parseTags(i: number = 0, lines = this.rawSim.split('\n')) {
         // eslint-disable-next-line prefer-const
         for (let [index, line] of lines.entries()) {
+            index = i;
             // remove comments
             line = line.split("//")[0];
 
@@ -194,8 +193,7 @@ export default class SMParser {
             // length of array is which note type is used
             // more about notes at https://github.com/stepmania/stepmania/wiki/sm#notes
 
-            // remove comments
-            line = line.split("//")[0];
+            line = line.split("//")[0]; // remove comments
 
             if (!line.includes(",")) {
                 !line.includes(";") && line.trim() !== "" ? measure.push(line.trim()) : false;
@@ -206,14 +204,13 @@ export default class SMParser {
 
             if (line.includes(";")) {
                 chartData.notes.push(measure);
-                this.parsedJson.charts.push(chartData)
+                this.parsedJson.charts.push(chartData);
+                this.parseTags(index, splicedLines);
                 // TODO: should run parseTags() with index as an argument again and seek for another NOTES tag
 
                 break;
             }
         }
-
-        console.log(chartData);
     }
 
     // misc
